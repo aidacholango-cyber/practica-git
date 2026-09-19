@@ -1,0 +1,82 @@
+name: Pipeline CI CD Examen
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+
+jobs:
+  calidad:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar Linter
+        run: npx eslint . --max-warnings=0
+
+  pruebas:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    steps:
+      - name: Descargar el codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js version ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar pruebas unitarias
+        run: npm test
+
+  empaquetar:
+    needs: [calidad, pruebas]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias, empaquetar y generar cobertura
+        run: |
+          npm ci
+          npm run build
+          npm test -- --coverage
+
+      - name: Publicar Artefacto de compilacion
+        uses: actions/upload-artifact@v4
+        with:
+          name: artefacto-aplicacion
+          path: dist/
+
+      - name: Publicar Reporte de Cobertura
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-cobertura
+          path: coverage/
+          
